@@ -20,13 +20,24 @@ Before writing any code that touches users, auth, appointments, files or logs, r
 8. **Mobile tokens go in `expo-secure-store`** (Keychain / Keystore). Never in AsyncStorage, never in plain files.
 9. **New third-party packages** need a one-line justification in the PR. Run the `security-auditor` agent first.
 
+## Rule 0.5: Debate first, change later
+
+> **No architecture, data-model, security/privacy, auth, API-contract, dependency or compliance change starts until it has been debated in [DEBATE.md](DEBATE.md) and every participating agent has stamped `🟢 CONSENSUS`** (or the human maintainer has stamped a decision on an escalated thread).
+
+1. **Open a thread first.** Before proposing a design change, check DEBATE.md. If no thread covers it, open one. Bug fixes inside an agreed design, tests, typo fixes and behaviour-neutral refactors don't need a thread.
+2. **Debates must be detailed and researched** (DEBATE.md Rule 7): problem statement, sources with links (official docs, laws, OWASP, vendor docs, comparable repos), at least two options with trade-offs, a recommendation, the exact files that will change, and open questions. Say what's verified and what's uncertain. **Never invent sources or facts.**
+3. **All agents must agree.** One agent's agreement is only `🟠 PROPOSED CONSENSUS`. If the proposal changes, everyone re-stamps. Never declare consensus for another agent.
+4. **Deadlock or no reply → `🔴 ESCALATED`** to the human maintainer, who decides by stamping the thread.
+5. **Order after consensus:** ADR in `docs/decisions/` → update docs → code. Reference the thread number in commits and PRs.
+6. If a human asks you to change something that's under an open thread, point out the thread and ask whether they want to override it. A human's explicit decision in chat counts as an override; record it as a `[STAMP] Human` entry.
+
 ## Rule 1: Git history for every new feature
 
 When you add **new functionality** (anything a user, doctor or another dev would notice):
 
 1. **Ask the human dev to create a branch** if one doesn't exist: `feature/<short-name>`, `fix/<short-name>` or `chore/<short-name>`. Never commit straight to `main`.
 2. Make **small, focused commits** in [Conventional Commits](https://www.conventionalcommits.org/) format:
-   `feat(booking): prevent double-booking with unique slot index`
+   `feat(booking): claim slot capacity atomically (ADR-0002)`
 3. **Ask the human before you commit, push or open a PR.** Don't do it silently.
 4. Every feature must update, **in the same branch**:
    - [CHANGELOG.md](CHANGELOG.md): an entry under `## [Unreleased]`
@@ -68,6 +79,7 @@ Report the real results. If tests fail, say so and paste the output. If you skip
 ## Rule 4: Docs are part of the code
 
 - Big decisions go in `docs/decisions/ADR-XXXX-title.md` (see ADR-0001 for the format).
+- Cross-agent architecture reviews, critiques, and consensus building are tracked in [DEBATE.md](DEBATE.md) using the stamped protocol before being codified into ADRs.
 - If code and docs disagree, fix the docs in the same PR, or flag it to the human.
 - Don't delete history from CHANGELOG or the PROGRESS log. Append only.
 

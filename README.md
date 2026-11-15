@@ -22,7 +22,7 @@ A doctor-appointment booking platform for **Android and iOS**. Patients find a d
 | Mobile (Android + iOS) | **React Native + Expo (TypeScript)** | One codebase for both stores. It's React, which the team already knows |
 | Doctor/Admin web | **React + Vite + TypeScript** | Same skills, and it shares types and API client with mobile |
 | Backend API | **ASP.NET Core (.NET 10 LTS) Web API** | Built-in Identity, Data Protection, rate limiting and policy authorization. Team knows .NET |
-| Database | **PostgreSQL** via EF Core (SQL Server also works) | Row-level security, cheap managed hosting, strong constraints for double-booking prevention |
+| Database | **PostgreSQL** via EF Core (SQL Server also works) | Row-level security, cheap managed hosting, atomic row-level capacity checks so slots are never over-booked (ADR-0002) |
 | Realtime queue | **SignalR** | Live "you are #3 in queue" updates |
 | Hosting | **Azure, Central India region** | Health data stays in India. Key Vault for keys |
 
@@ -33,15 +33,20 @@ Full reasoning: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/decisions
 ```
 apps/
   mobile/            React Native (Expo) patient app (+ doctor mode later)
-  doctor-web/        React dashboard for doctors, staff and platform admin
+  doctor-web/        React dashboard for doctors (incl. Desk mode) and platform admin
+  web-landing/       Static clinic-QR landing site + app-association files (separate domain, ADR-0010)
 backend/
+  openapi/v1.json                OpenAPI 3.0 doc generated at build time, committed (ADR-0005)
+  package.json                   Thin wrapper so Turborepo can run dotnet build/test
   src/DrBooking.Api/             ASP.NET Core API (controllers, auth, SignalR hubs)
   src/DrBooking.Application/     Use cases, validation, DTOs
   src/DrBooking.Domain/          Entities, rules (no framework code)
   src/DrBooking.Infrastructure/  EF Core, encryption, SMS, storage
   tests/                         Unit + integration tests
 packages/
-  api-client/        Generated TypeScript client (from OpenAPI), shared by mobile + web
+  api-client/        Orval-generated TanStack Query hooks + Zod schemas (from backend/openapi), shared by mobile + web
+pnpm-workspace.yaml  pnpm workspaces, nodeLinker: hoisted (ADR-0005)
+turbo.json           Turborepo task pipeline
 docs/                Product, architecture, security, design, workflow, pitch
 .claude/             AI sub-agents ("bots") and slash commands
 .githooks/           Git hooks (docs-sync check, secret scan)

@@ -16,7 +16,7 @@ Legend: 🌐 anonymous (rate-limited) · 👤 Patient · 🩺 Doctor · 🧑‍�
 | POST | `/auth/refresh` | 🌐 (refresh token) | rotates the token. Reuse → whole family revoked |
 | POST | `/auth/logout` | any | `{allDevices?: bool}` |
 
-**Anonymous endpoints and why:** OTP request/verify and refresh (needed before login). Public doctor search/profile/slots (discovery before signup). Nothing else.
+**Anonymous endpoints and why:** OTP request/verify and refresh (needed before login). Public doctor search/profile/slots and `GET /public/clinics/{publicCode}` (discovery before signup, clinic QR). Nothing else.
 
 ## Patient profile & family
 
@@ -43,12 +43,12 @@ Legend: 🌐 anonymous (rate-limited) · 👤 Patient · 🩺 Doctor · 🧑‍�
 
 | Method | Path | Who | Notes |
 |---|---|---|---|
-| POST | `/appointments` | 👤 | header `Idempotency-Key`. Body `{doctorId, clinicId, slotStart, familyMemberId, purpose, purposeNote?}` → 201 `{id, tokenNo, ...}`; 409 if slot taken |
+| POST | `/appointments` | 👤 | header `Idempotency-Key`. Body `{doctorId, clinicId, slotStart, familyMemberId, purpose, purposeNote?}` → 201 `{id, tokenNo, ...}`; 400/404 if `slotStart` isn't in the doctor's schedule; **409** if the slot is full or blocked (ADR-0002) |
 | GET | `/appointments?scope=upcoming\|past` | 👤 | own + family |
 | GET | `/appointments/{id}` | 👤 owner | |
 | POST | `/appointments/{id}/cancel` | 👤 owner | before cut-off |
 | POST | `/appointments/{id}/reschedule` | 👤 owner | `{slotStart}` (atomic cancel + book) |
-| GET | `/appointments/{id}/queue` | 👤 owner | `{position, etaMinutes, doctorStatus}` |
+| GET | `/appointments/{id}/queue` | 👤 owner | `{position, etaMinutes, doctorStatus, sessionVersion}` with `ETag: "<sessionVersion>"`; honours `If-None-Match` → **304** (ADR-0004). Used on foreground, reconnect, version gap, and 30 s polling while focused and disconnected |
 
 ## Doctor dashboard
 
@@ -57,16 +57,28 @@ Legend: 🌐 anonymous (rate-limited) · 👤 Patient · 🩺 Doctor · 🧑‍�
 | GET / PUT | `/doctor/profile` | 🩺 |
 | POST | `/doctor/verification` | 🩺 (registration no + document upload) |
 | GET / POST | `/doctor/clinics` | 🩺 |
-| PUT | `/doctor/clinics/{doctorClinicId}` | 🩺 (slot length, window, fee) |
-| GET / PUT | `/doctor/clinics/{doctorClinicId}/sessions` | 🩺 |
-| GET / POST / DELETE | `/doctor/leaves` | 🩺 |
-| GET | `/doctor/appointments?date=&clinicId=` | 🩺 · 🧑‍💼 `schedule:view` |
-| POST | `/doctor/appointments/{id}/check-in` | 🩺 · 🧑‍💼 `checkin` |
-| POST | `/doctor/appointments/{id}/start` · `/complete` · `/no-show` | 🩺 · 🧑‍💼 `queue:manage` |
+| PUT | `/doctor/clinics/{doctorClinicId}` | 🩺 Doctor PIN context only (not Desk mode). `queueMode` (`Token`/`TimeSlot`, required at creation, ADR-0006), slot length / patients per slot (TimeSlot), `avgConsultMinutes` (Token), window, fee |
+| GET / PUT | `/doctor/clinics/{doctorClinicId}/sessions` | 🩺 (not Desk mode). Includes `maxPatients` per session (Token) |
+| PUT | `/doctor/clinics/{doctorClinicId}/capacity/today` | 🩺 (not Desk mode). Today-only session limits (ADR-0006) |
+| POST | `/doctor/clinics/{doctorClinicId}/public-code/rotate` | 🩺 (not Desk mode). New clinic QR code (ADR-0010) |
+| GET / POST / DELETE | `/doctor/leaves` | 🩺 (not Desk mode) |
+| GET | `/doctor/appointments?date=&clinicId=` | 🩺 incl. Desk mode (today's list; **no history** in Desk mode) |
+| GET | `/doctor/patients/{familyMemberId}/history` | 🩺 **rejected from Desk-mode devices** (ADR-0007) |
 | POST | `/doctor/appointments/{id}/cancel` | 🩺 (notifies patient) |
-| POST | `/doctor/walk-ins` | 🩺 · 🧑‍💼 `walkin:add` |
-| POST | `/doctor/queue/{clinicId}/delay` | 🩺 · 🧑‍💼 `queue:manage` `{minutes, message}` |
-| GET / POST / DELETE | `/doctor/staff` | 🩺 (invite/revoke staff, set permissions) |
+| POST | `/doctor/queue/{clinicId}/delay` | 🩺 incl. Desk mode. `{minutes, message}` |
+
+**Queue actions (ADR-0006).** Allowed from Desk mode unless marked. Status transitions are guarded updates (`WHERE status = <expected>`) **without If-Match**. Reorders **require `If-Match: <sessionVersion>`**, and a mismatch returns 409 → refresh.
+
+| Method | Path | Concurrency | Notes |
+|---|---|---|---|
+| POST | `/doctor/appointments/{id}/check-in` | guarded transition | Booked/NotPresent → CheckedIn |
+| POST | `/doctor/queue/{doctorClinicId}/call-next` | server picks under session lock | lowest `queue_position` CheckedIn → InConsultation. Two devices never call the same patient |
+| POST | `/doctor/appointments/{id}/complete` · `/no-show` | guarded transition | no-show frees capacity |
+| POST | `/doctor/appointments/{id}/not-here` | guarded transition | `{moveBy?: n, toEnd?: bool}` → NotPresent + moved back; keeps capacity |
+| POST | `/doctor/queue/{doctorClinicId}/reorder` | **If-Match required** | `{appointmentId, newPosition}`; positions renumbered 1..n |
+| POST | `/doctor/queue/{doctorClinicId}/extra` | guarded | **Doctor only, not Desk mode.** Over-capacity token (`is_over_capacity`), audited |
+
+~~`/doctor/walk-ins`~~ and ~~`/doctor/staff`~~ are removed for MVP: walk-ins use the `/desk/...` endpoints, and staff accounts are deferred (ADR-0007).
 
 ## Admin
 
@@ -77,14 +89,54 @@ Legend: 🌐 anonymous (rate-limited) · 👤 Patient · 🩺 Doctor · 🧑‍�
 | POST | `/admin/users/{id}/suspend` | 🛡️ |
 | POST | `/admin/break-glass` | 🛡️ `{entity, entityId, reason}` → time-limited grant, audited, security owner alerted |
 
-## Realtime (SignalR `/hubs/queue`)
+## Realtime (SignalR `/hubs/queue`), see [ADR-0004](decisions/ADR-0004-resilient-queue-notifications.md)
 
 | Method | Direction | Notes |
 |---|---|---|
-| `JoinAppointment(appointmentId)` | client → server | server checks ownership |
-| `QueueUpdated {position, etaMinutes, status}` | server → patient | no other patients' data |
-| `JoinClinicSession(clinicId, date)` | dashboard → server | doctor/staff only |
-| `SessionUpdated {appointments[]}` | server → dashboard | |
+| `JoinAppointment(appointmentId)` | client → server | server checks ownership. **Call again in `onreconnected`** (new connectionId = groups lost) |
+| `QueueUpdated {appointmentId, position, etaMinutes, status, sessionVersion}` | server → patient | no other patients' data. Client refetches over REST if `sessionVersion ≠ last + 1` |
+| `JoinClinicSession(clinicId, date)` | dashboard → server | doctor/staff only. Re-invoke after reconnect |
+| `SessionUpdated {appointments[], sessionVersion}` | server → dashboard | |
+
+## Push & SMS events (ADR-0004)
+
+| Event | Push (high priority) | SMS (⏸️ on hold for MVP, feature flag off) |
+|---|---|---|
+| 3 patients ahead (once per visit) | ✅ | planned |
+| Patient is next | ✅ | ❌ |
+| Doctor running late | ✅ | planned (delay > 30 min) |
+| Appointment cancelled by doctor | ✅ | planned |
+
+Payloads carry only the appointment id plus generic text (DESIGN §7). Deduplicated per appointment per event. Only **OTP SMS** (login and registration) is sent in MVP. Notification SMS will use DLT-registered templates when switched on.
+
+## Desk: adding patients ([ADR-0008](decisions/ADR-0008-desk-patient-registration.md)), Desk mode allowed
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/desk/patients/check` | `{phone}` → `{registered: bool, knownToThisClinic: [{familyMemberId, displayName}]}`. Lists names **only for patients this clinic has seen before**. Rate-limited per clinic (alert after 30 checks/hour without a queue add; tunable), audit-logged with device |
+| POST | `/desk/queue` | Add a registered patient: `{phone, familyMemberId? or displayName, sessionId}` → token. Claims capacity (ADR-0006). Sends the app notification with "Not you / for family? Tap to change" |
+| POST | `/desk/patients/otp` | New patient: scoped OTP SMS (`purpose = DeskRegistration`, clinic-bound, 10 min, single use, **can't log into the app**) |
+| POST | `/desk/patients/verify` | `{phone, code, name, age, gender, sessionId}` → account + `Self` member + consent (`method = DeskOtp`) + queue entry |
+| POST | `/me/appointments/{id}/disown` | 👤 Patient: "Not me" on a desk-added entry. Removes it, frees capacity, audited |
+
+## Devices and Desk mode ([ADR-0007](decisions/ADR-0007-single-doctor-login-desk-mode.md))
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/doctor/devices/register` | `{deviceId (random UUID), deviceName}` after OTP + second factor |
+| GET / DELETE | `/doctor/devices` · `/doctor/devices/{id}` | List; **sign out a device instantly** (revokes its refresh-token family). Not from Desk mode |
+| POST | `/doctor/devices/{id}/desk-mode` | `{on: true}` from a doctor session; `{on: false}` **requires the Doctor PIN** (server-side Argon2id check; 5 failures → OTP + second factor) |
+| PUT | `/doctor/pin` | Set or change the Doctor PIN (needs re-auth). Must differ from any Desk Unlock PIN |
+
+The Desk Unlock PIN is set on the device and checked locally against a salted hash in secure storage. 5 failures → the device needs the Doctor PIN. **Desk-mode restrictions are enforced server-side**: endpoints marked "not Desk mode" return 403 when the request comes from a device with `desk_mode = true`.
+
+## Public web (clinic QR, [ADR-0010](decisions/ADR-0010-clinic-qr-app-links.md)): static site on a separate domain, not this API
+
+| Path | Notes |
+|---|---|
+| `https://<web-domain>/c/<publicCode>` | Opens the app (Universal/App Links) or a static, cookie-less landing page with store buttons |
+| `/.well-known/apple-app-site-association`, `/.well-known/assetlinks.json` | App association files (public app IDs + cert fingerprints only) |
+| `GET /public/clinics/{publicCode}` (API) | 🌐 Public clinic info for the app's clinic page. Rate-limited, no patient data |
 
 ## Status codes
 

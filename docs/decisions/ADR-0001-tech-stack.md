@@ -1,6 +1,6 @@
 # ADR-0001: Tech stack
 
-- **Status:** Accepted
+- **Status:** Accepted (double-booking mechanism superseded by [ADR-0002](ADR-0002-slot-concurrency-inventory.md); the database choice stands)
 - **Date:** 2026-11-16
 
 ## Context
