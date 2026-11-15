@@ -24,6 +24,8 @@ Standards we follow: **OWASP ASVS Level 2** (API/web), **OWASP MASVS** (mobile),
 |---|---|
 | Patient login | Phone + 6-digit OTP. OTP valid 5 min, max 5 tries, then 15-min lockout. OTP stored **hashed**. Rate limit per phone + per IP + per device |
 | Doctor/staff login | Phone OTP **+ second factor** (TOTP authenticator app or email OTP) for dashboard access |
+| **Single doctor-side login (MVP), [ADR-0007](decisions/ADR-0007-single-doctor-login-desk-mode.md)** | Doctor and receptionist share one doctor login. **Accepted trade-off:** the audit log identifies the *device*, not the *person*. Mitigations: **random `device_id`** in secure storage (no fingerprinting); named trusted devices with device-bound refresh tokens; "Signed-in devices" list with instant sign-out; **Desk mode** (hides patient history, settings and devices; **enforced server-side**). **Two different PINs:** a *Desk Unlock PIN* (shared with the receptionist, unlocks Desk mode only, 5 failures → Doctor PIN) and a *Doctor PIN* (private, Argon2id on the server, exits Desk mode, 5 failures → OTP + second factor). The two PINs must differ. **Revisit separate receptionist logins before Phase 2 adds medical records** |
+| Desk patient check, [ADR-0008](decisions/ADR-0008-desk-patient-registration.md) | `POST /desk/patients/check`. Registered phone → added without OTP, so the desk learns platform membership (accepted by maintainer). Stored names and family members shown **only if this clinic has seen the patient before**. Patient notified in app with "Not me" undo. Checks rate-limited per clinic and audit-logged with device. New phone → **scoped `DeskRegistration` OTP** (clinic-bound, 10 min, single use, hashed, **can't create an app session**); consent recorded with `method = DeskOtp` |
 | Admin login | SSO/TOTP MFA required, IP allow-list, short session (30 min idle) |
 | Access token | JWT, **10-minute life**, signed with an asymmetric key (RS256/ES256) from Key Vault, `aud`/`iss` validated, minimal claims (user id, role). **No PII inside the JWT** |
 | Refresh token | Opaque random 256-bit value, stored **hashed** server-side, 30-day life, **rotated on every use**. Reuse of an old token revokes the whole token family (theft detection) |
@@ -67,6 +69,8 @@ Standards we follow: **OWASP ASVS Level 2** (API/web), **OWASP MASVS** (mobile),
 - `Idempotency-Key` on booking/payment POSTs.
 - Security headers on web: CSP, `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`.
 - CORS: explicit allow-list of our web origins only.
+- **Clinic QR / public web ([ADR-0010](decisions/ADR-0010-clinic-qr-app-links.md))**: QR links carry only the clinic's random, rotatable `public_code`, **never** a phone, name, token or appointment id. The landing page and app-association files live on a **separate static domain** from the API (no shared cookies or origins), with no cookies, analytics or third-party scripts. No third-party deep-link SDKs.
+- **OpenAPI ([ADR-0005](decisions/ADR-0005-monorepo-and-client-pipeline.md))**: API docs UI is only in local/dev. Builds and CI never need secrets (`BuildContext.IsOpenApiGeneration` skips Key Vault and DB at build time).
 - Generic error messages to clients (ProblemDetails). Details go to server logs without PHI.
 - Pagination limits (max 50) to stop bulk scraping. Doctor search is public but rate-limited and returns no patient data.
 

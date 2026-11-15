@@ -42,9 +42,14 @@
 **Visual:** Dashboard: counters (Booked 18 · Waiting 4 · Done 9 · No-show 1) and a big "Call next" button.
 **Speaker notes:** "Your receptionist checks patients in with one tap. You press 'Call next'. If you're running late, one tap tells every waiting patient. No more phone calls asking 'how long, sir?'"
 
+## Slide 6b: Walk-ins and your receptionist
+**On slide:** Walk-in? Add them by phone number in seconds. Returning patients go straight into the queue. · One login: run the desk yourself, or put your receptionist's computer in Desk mode. · Set your daily limit → app shows "Full today".
+**Visual:** Receptionist at a desk typing a phone number; the screen shows "Added · Token 14"; the patient's phone shows "Dr Sharma's clinic added you to today's queue".
+**Speaker notes:** "Patients who walk in are added by phone number. If they already use the app, they're in the queue instantly and can watch it on their phone. New patients register with a one-time code. One login runs everything: do it yourself, or put the reception computer in Desk mode, which hides patient history from the desk. You decide how many patients you can see in a day, and once you're full, the app tells patients to pick another day."
+
 ## Slide 7: Live queue = fewer no-shows, calmer waiting room
-**On slide:** Patients get alerts at #3 ("Leave now") and #1 ("You're next")
-**Visual:** Phone notifications stacking: "Leave now, you're #3" → "You're next".
+**On slide:** One app alert when **3 patients are ahead**, then "You're next"
+**Visual:** Phone notifications stacking: "3 patients ahead of you. Please reach the clinic." → "You're next".
 **Speaker notes:** "Reminders the evening before and an hour before, plus live alerts, cut no-shows. And if someone cancels, that slot opens for another patient automatically."
 
 ## Slide 8: Your schedule, your rules

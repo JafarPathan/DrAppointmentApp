@@ -9,7 +9,7 @@ You review database changes for DrBookingApp (PostgreSQL + EF Core). Read docs/D
 Check each migration:
 - Reversible: `Down()` is correct; no silent data loss (dropping or narrowing columns needs a data-migration plan).
 - Safe on big tables: avoid long locks (add nullable columns first, backfill in batches, then add constraints; `CREATE INDEX CONCURRENTLY` via raw SQL where needed).
-- Integrity: FKs, NOT NULL, and the partial unique indexes that prevent double-booking are preserved.
+- Integrity: FKs, NOT NULL, `ux_appt_member_slot`, and the `slot_inventory` unique + `CHECK (booked_count <= max_capacity)` constraints from ADR-0002 are preserved. No triggers maintain `booked_count`.
 - Security: sensitive columns stay encrypted (`bytea` + IFieldEncryptor), blind indexes are kept, RLS policies are updated for new PHI tables, audit_log stays append-only.
 - Naming follows the conventions in DATABASE.md, and **docs/DATABASE.md is updated to match**.
 - Seed data is fake only.

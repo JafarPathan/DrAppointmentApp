@@ -9,3 +9,5 @@ Quick reminders:
 - **Every feature updates** CHANGELOG.md, docs/PROGRESS.md and, if user-visible, the pitch deck and video script. Use the `docs-keeper` agent or `/sync-docs`.
 - **Before saying "done":** `code-reviewer` + `security-auditor` + `test-engineer` agents. Report real results.
 - Sub-agents are in `.claude/agents/`. Slash commands are in `.claude/commands/`.
+- **Debate first, change later (AGENTS.md Rule 0.5):** no design/architecture/security/API/dependency change starts until its DEBATE.md thread is `🟢 CONSENSUS` from **all** agents (or a human decision on an escalated thread). Stamps must be detailed and researched, with sources listed.
+- **Cross-agent collaboration:** Check [DEBATE.md](DEBATE.md) for active debates, architecture critiques, and consensus stamps with Antigravity / Gemini and other agents.

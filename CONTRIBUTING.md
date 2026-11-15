@@ -6,12 +6,20 @@ Welcome! This guide is for human devs on the team. AI agents follow [AGENTS.md](
 
 ## 1. Setup
 
-1. Install: Node LTS, .NET 10 SDK, Docker Desktop (for local Postgres), Git, Android Studio (emulator), Xcode (Mac only, for iOS).
+1. Install: Node LTS, **pnpm** (via `corepack enable`), .NET 10 SDK, Docker Desktop (for local Postgres), Git, Android Studio (emulator), Xcode (Mac only, for iOS).
 2. Clone the repo, then turn on the git hooks:
    ```bash
    git config core.hooksPath .githooks
    ```
-3. Local secrets go in `dotnet user-secrets` (backend) and `.env.local` (apps). Both are git-ignored. Ask the lead for **dev-only** keys. Never use production keys locally.
+3. Install and build everything (ADR-0005):
+   ```bash
+   pnpm install
+   ```
+   ```bash
+   pnpm turbo run build
+   ```
+   Frontend-only devs don't need the .NET SDK to get API types: `backend/openapi/v1.json` is committed, and `pnpm --filter api-client generate` regenerates the client from it.
+4. Local secrets go in `dotnet user-secrets` (backend) and `.env.local` (apps). Both are git-ignored. Ask the lead for **dev-only** keys. Never use production keys locally.
 
 ## 2. Branches
 
