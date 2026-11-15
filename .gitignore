@@ -1,0 +1,51 @@
+# Secrets - never commit
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.keystore
+*.jks
+appsettings.Development.json
+appsettings.Production.json
+secrets.json
+google-services.json
+GoogleService-Info.plist
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+coverage/
+
+# Native builds
+android/app/build/
+ios/Pods/
+ios/build/
+*.apk
+*.aab
+*.ipa
+
+# .NET
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude local settings
+.claude/settings.local.json
+
+# Never commit DB dumps or real data
+*.bak
+*.dump
+*.sql.gz

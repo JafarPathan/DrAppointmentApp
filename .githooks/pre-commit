@@ -1,0 +1,41 @@
+#!/bin/sh
+# DrBookingApp pre-commit hook
+# Enable once per clone:  git config core.hooksPath .githooks
+#  1) BLOCKS commits that look like they contain secrets
+#  2) WARNS when code changed but CHANGELOG.md / docs/PROGRESS.md did not (AGENTS.md Rule 1)
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+# ---------- 1. Secret scan (blocking) ----------
+pattern='(-----BEGIN [A-Z ]*PRIVATE KEY-----|AccountKey=[A-Za-z0-9+/=]{20,}|sk_live_[A-Za-z0-9]{10,}|rzp_live_[A-Za-z0-9]{8,}|AIza[0-9A-Za-z_-]{35}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|ghp_[A-Za-z0-9]{36}|eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}|(Password|Pwd)=[^;"'\''[:space:]]{6,})'
+found=0
+for f in $staged; do
+  case "$f" in
+    *.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.pdf|*.ttf|*.otf|*.woff|*.woff2|.githooks/*) continue ;;
+  esac
+  if git show ":$f" 2>/dev/null | grep -En "$pattern" >/dev/null 2>&1; then
+    echo "❌ Possible secret in: $f"
+    found=1
+  fi
+  case "$f" in
+    .env|.env.*|*/.env|*/.env.*|*.pfx|*.p12|*.keystore|*.jks|*appsettings.Production.json)
+      case "$f" in *.example|*.sample) ;; *) echo "❌ Sensitive file staged: $f"; found=1 ;; esac ;;
+  esac
+done
+if [ "$found" -eq 1 ]; then
+  echo ""
+  echo "🔒 Commit blocked: privacy & security first (docs/SECURITY.md)."
+  echo "   Move secrets to user-secrets / .env.local / Key Vault, then unstage the file."
+  exit 1
+fi
+
+# ---------- 2. Docs-sync reminder (warning only) ----------
+code_changed=$(echo "$staged" | grep -E '^(apps|backend|packages)/' | head -n 1)
+docs_changed=$(echo "$staged" | grep -E '^(CHANGELOG\.md|docs/PROGRESS\.md)$' | head -n 1)
+if [ -n "$code_changed" ] && [ -z "$docs_changed" ]; then
+  echo "⚠️  Code changed but CHANGELOG.md / docs/PROGRESS.md not staged."
+  echo "    Before the PR, run /sync-docs (docs-keeper agent) - AGENTS.md Rule 1."
+fi
+
+exit 0
